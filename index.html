@@ -1,0 +1,357 @@
+@{
+    Layout = null; // Or set to your desired layout
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Management Dashboard</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/select/1.7.0/css/select.bootstrap5.min.css">
+    
+    <!-- Bootstrap Datepicker CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-datepicker@1.10.0/dist/css/bootstrap-datepicker3.min.css">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root { --primary-green: #2d8f47; --light-green: #4CAF50; --dark-green: #1e5f2f; }
+        body { background-color: #f8f9fa; }
+        .navbar { background: linear-gradient(135deg, var(--primary-green), var(--light-green)) !important; }
+        .card { border: none; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,.1); }
+        .card-header { background: linear-gradient(135deg, var(--primary-green), var(--light-green)); color: white; border-radius: 10px 10px 0 0 !important; }
+        .form-control:focus, .form-select:focus { border-color: var(--primary-green); box-shadow: 0 0 0 0.2rem rgba(45,143,71,.25); }
+        .btn-primary { background-color: var(--primary-green); border-color: var(--primary-green); }
+        .btn-primary:hover { background-color: var(--dark-green); border-color: var(--dark-green); }
+        #dataTable thead th { background-color: var(--primary-green) !important; color: white !important; border-color: var(--primary-green) !important; position: relative; padding: 12px 8px !important; }
+        #dataTable thead .filter-dropdown { background-color: rgba(255,255,255,.9); border: 1px solid var(--dark-green); color: #333; width: 100%; padding: 3px 5px; font-size: 11px; border-radius: 3px; margin-top: 5px; }
+        #dataTable thead .filter-dropdown option { background-color: white; color: #333; }
+        #dataTable thead .filter-dropdown:focus { outline: none; border-color: var(--light-green); box-shadow: 0 0 3px rgba(76,175,80,.5); }
+        #dataTable.table-striped > tbody > tr:nth-of-type(odd) > td { background-color: rgba(45,143,71,.05); }
+        #dataTable.table-hover tbody tr:hover { background-color: rgba(45,143,71,.1); }
+        .dataTables_wrapper .dataTables_length select, .dataTables_wrapper .dataTables_filter input { border: 1px solid #ddd; border-radius: 5px; padding: 5px 10px; }
+        .dataTables_wrapper .dataTables_filter input:focus { border-color: var(--primary-green); box-shadow: 0 0 0 0.2rem rgba(45,143,71,.25); }
+        .dt-buttons .btn { margin-right: 5px; background-color: var(--primary-green); border-color: var(--primary-green); color: white; }
+        .dt-buttons .btn:hover { background-color: var(--dark-green); border-color: var(--dark-green); }
+        .alert-container { position: fixed; top: 80px; right: 20px; z-index: 1050; max-width: 400px; }
+        .table-container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,.1); }
+        .loading-overlay { position: relative; }
+        .loading-overlay::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,.8); z-index: 1000; display: none; }
+        .loading-overlay.loading::before { display: block; }
+        .spinner-container { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 1001; display: none; }
+        .loading-overlay.loading .spinner-container { display: block; }
+    </style>
+</head>
+<body>
+    <div id="alertContainer" class="alert-container"></div>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <nav class="navbar navbar-expand-lg navbar-dark mb-4">
+                    <div class="container-fluid">
+                        <span class="navbar-brand mb-0 h1">
+                            <i class="fas fa-chart-line me-2"></i>
+                            Data Management Dashboard
+                        </span>
+                    </div>
+                </nav>
+            </div>
+        </div>
+        <div class="row">
+            <!-- Filter Form -->
+            <div class="col-lg-4 col-md-5">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-filter me-2"></i>
+                            Data Filter Criteria
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="dataFilterForm">
+                            <div class="mb-3">
+                                <label for="listType" class="form-label">List Type</label>
+                                <select class="form-select" id="listType" required>
+                                    <option value="">Select List Type</option>
+                                    <option value="Option 1">Option 1</option>
+                                    <option value="Option 2">Option 2</option>
+                                    <option value="Option 3">Option 3</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="region" class="form-label">Region</label>
+                                <select class="form-select" id="region" required>
+                                    <option value="">Select Region</option>
+                                    <option value="US">US</option>
+                                    <option value="Europe">Europe</option>
+                                    <option value="Asia">Asia</option>
+                                    <option value="Global">Global</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="account" class="form-label">Account</label>
+                                <select class="form-select" id="account" required>
+                                    <option value="">Select Account</option>
+                                    <option value="Account A">Account A</option>
+                                    <option value="Account B">Account B</option>
+                                    <option value="Account C">Account C</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="cobDate" class="form-label">COB Date</label>
+                                <input type="text" class="form-control datepicker" id="cobDate" placeholder="Select date or enter" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="component" class="form-label">Component</label>
+                                <input type="text" class="form-control" id="component" placeholder="Comp. Code, * or List">
+                            </div>
+                            <div class="mb-3">
+                                <label for="counterPartyCode" class="form-label">CounterParty Code</label>
+                                <input type="text" class="form-control" id="counterPartyCode" placeholder="CPY Code, * or List">
+                            </div>
+                            <div class="mb-3">
+                                <label for="currency" class="form-label">Currency</label>
+                                <input type="text" class="form-control" id="currency" placeholder="CCY, * or List">
+                            </div>
+                            <div class="mb-3">
+                                <label for="currentCobDate" class="form-label">Current COB Date</label>
+                                <input type="text" class="form-control datepicker" id="currentCobDate" placeholder="dd Mmm yyyy">
+                            </div>
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                <button type="button" class="btn btn-secondary me-md-2" id="cancelBtn">
+                                    <i class="fas fa-times me-1"></i>Cancel
+                                </button>
+                                <button type="submit" class="btn btn-primary" id="generateBtn">
+                                    <i class="fas fa-play me-1"></i>Generate
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <!-- Data Table -->
+            <div class="col-lg-8 col-md-7">
+                <div class="table-container loading-overlay" id="tableContainer">
+                    <div class="spinner-container">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">
+                            <i class="fas fa-table me-2"></i>
+                            Data Results
+                        </h5>
+                    </div>
+                    <div class="table-responsive">
+                        <table id="dataTable" class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Source</th>
+                                    <th>Portfolio</th>
+                                    <th>Product</th>
+                                    <th>Currency</th>
+                                    <th>Instrument</th>
+                                    <th>CounterParty</th>
+                                    <th>Deal/Contract</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-5">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Click "Generate" to load data
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.colVis.min.js"></script>
+    <script src="https://cdn.datatables.net/select/1.7.0/js/dataTables.select.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap-datepicker@1.10.0/dist/js/bootstrap-datepicker.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Sample data
+            const sampleData = [
+                {"Source": "System A", "Portfolio": "Fixed Income", "Product": "Corporate Bond", "Currency": "USD", "Instrument": "US12345678", "CounterParty": "Goldman Sachs", "Deal/Contract": "CTR-001"},
+                {"Source": "System B", "Portfolio": "Equity", "Product": "Common Stock", "Currency": "USD", "Instrument": "US87654321", "CounterParty": "JP Morgan", "Deal/Contract": "CTR-002"},
+                {"Source": "Manual Entry", "Portfolio": "Derivatives", "Product": "Interest Rate Swap", "Currency": "EUR", "Instrument": "EU11223344", "CounterParty": "Deutsche Bank", "Deal/Contract": "CTR-003"},
+                {"Source": "System A", "Portfolio": "Fixed Income", "Product": "Government Bond", "Currency": "EUR", "Instrument": "EU55667788", "CounterParty": "BNP Paribas", "Deal/Contract": "CTR-004"},
+                {"Source": "System C", "Portfolio": "Equity", "Product": "Preferred Stock", "Currency": "GBP", "Instrument": "GB99887766", "CounterParty": "Barclays", "Deal/Contract": "CTR-005"},
+                {"Source": "System B", "Portfolio": "Derivatives", "Product": "FX Forward", "Currency": "JPY", "Instrument": "JP55443322", "CounterParty": "Nomura", "Deal/Contract": "CTR-006"},
+                {"Source": "Manual Entry", "Portfolio": "Fixed Income", "Product": "Municipal Bond", "Currency": "USD", "Instrument": "US66778899", "CounterParty": "Morgan Stanley", "Deal/Contract": "CTR-007"},
+                {"Source": "System A", "Portfolio": "Equity", "Product": "ETF", "Currency": "USD", "Instrument": "US44556677", "CounterParty": "BlackRock", "Deal/Contract": "CTR-008"},
+                {"Source": "System C", "Portfolio": "Derivatives", "Product": "Credit Default Swap", "Currency": "EUR", "Instrument": "EU33445566", "CounterParty": "UBS", "Deal/Contract": "CTR-009"},
+                {"Source": "System B", "Portfolio": "Fixed Income", "Product": "Treasury Bill", "Currency": "USD", "Instrument": "US22334455", "CounterParty": "Citibank", "Deal/Contract": "CTR-010"},
+                {"Source": "Manual Entry", "Portfolio": "Equity", "Product": "REIT", "Currency": "GBP", "Instrument": "GB11223344", "CounterParty": "HSBC", "Deal/Contract": "CTR-011"},
+                {"Source": "System A", "Portfolio": "Derivatives", "Product": "Equity Option", "Currency": "USD", "Instrument": "US77889900", "CounterParty": "Charles Schwab", "Deal/Contract": "CTR-012"},
+                {"Source": "System C", "Portfolio": "Fixed Income", "Product": "High Yield Bond", "Currency": "EUR", "Instrument": "EU66778899", "CounterParty": "Credit Suisse", "Deal/Contract": "CTR-013"},
+                {"Source": "System B", "Portfolio": "Equity", "Product": "ADR", "Currency": "USD", "Instrument": "US55667788", "CounterParty": "Wells Fargo", "Deal/Contract": "CTR-014"},
+                {"Source": "Manual Entry", "Portfolio": "Derivatives", "Product": "Currency Swap", "Currency": "JPY", "Instrument": "JP44556677", "CounterParty": "Mizuho", "Deal/Contract": "CTR-015"},
+                {"Source": "System A", "Portfolio": "Fixed Income", "Product": "Convertible Bond", "Currency": "GBP", "Instrument": "GB33445566", "CounterParty": "Lloyds", "Deal/Contract": "CTR-016"},
+                {"Source": "System C", "Portfolio": "Equity", "Product": "Warrant", "Currency": "EUR", "Instrument": "EU22334455", "CounterParty": "Societe Generale", "Deal/Contract": "CTR-017"},
+                {"Source": "System B", "Portfolio": "Derivatives", "Product": "Commodity Future", "Currency": "USD", "Instrument": "US11223344", "CounterParty": "TD Securities", "Deal/Contract": "CTR-018"},
+                {"Source": "Manual Entry", "Portfolio": "Fixed Income", "Product": "Asset Backed Security", "Currency": "USD", "Instrument": "US99887766", "CounterParty": "Bank of America", "Deal/Contract": "CTR-019"},
+                {"Source": "System A", "Portfolio": "Equity", "Product": "Index Fund", "Currency": "EUR", "Instrument": "EU88776655", "CounterParty": "Vanguard", "Deal/Contract": "CTR-020"}
+            ];
+            let table;
+
+            $('.datepicker').datepicker({
+                format: 'dd M yyyy',
+                autoclose: true,
+                todayHighlight: true,
+                orientation: 'bottom auto'
+            });
+
+            function initializeDataTable() {
+                if ($.fn.DataTable.isDataTable('#dataTable')) {
+                    $('#dataTable').DataTable().destroy();
+                }
+                table = $('#dataTable').DataTable({
+                    data: [],
+                    columns: [
+                        { data: 'Source', title: 'Source' },
+                        { data: 'Portfolio', title: 'Portfolio' },
+                        { data: 'Product', title: 'Product' },
+                        { data: 'Currency', title: 'Currency' },
+                        { data: 'Instrument', title: 'Instrument' },
+                        { data: 'CounterParty', title: 'CounterParty' },
+                        { data: 'Deal/Contract', title: 'Deal/Contract' }
+                    ],
+                    dom: 'Bfrtip',
+                    buttons: [
+                        { extend: 'copy', className: 'btn btn-sm', text: '<i class="fas fa-copy me-1"></i>Copy' },
+                        { extend: 'excel', className: 'btn btn-sm', text: '<i class="fas fa-file-excel me-1"></i>Excel' },
+                        { extend: 'csv', className: 'btn btn-sm', text: '<i class="fas fa-file-csv me-1"></i>CSV' },
+                        { extend: 'pdf', className: 'btn btn-sm', text: '<i class="fas fa-file-pdf me-1"></i>PDF' },
+                        { extend: 'print', className: 'btn btn-sm', text: '<i class="fas fa-print me-1"></i>Print' }
+                    ],
+                    select: { style: 'multi' },
+                    pageLength: 10,
+                    responsive: true,
+                    language: {
+                        emptyTable: "No data available. Click 'Generate' to load data.",
+                        zeroRecords: "No matching records found",
+                        lengthMenu: "_MENU_ entries per page"
+                    },
+                    initComplete: function() {
+                        this.api().columns().every(function() {
+                            let column = this;
+                            let title = column.header().textContent;
+                            let select = $('<select class="filter-dropdown"><option value="">All</option></select>')
+                                .appendTo($(column.header()))
+                                .on('change', function() {
+                                    let val = $.fn.dataTable.util.escapeRegex($(this).val());
+                                    column.search(val ? '^' + val + '$' : '', true, false).draw();
+                                });
+                            column.data().unique().sort().each(function(d, j) {
+                                if (d) select.append('<option value="' + d + '">' + d + '</option>');
+                            });
+                        });
+                    }
+                });
+            }
+            initializeDataTable();
+
+            function validateForm() {
+                let isValid = true;
+                const requiredFields = ['listType', 'region', 'account', 'cobDate'];
+                requiredFields.forEach(function(fieldId) {
+                    const field = $('#' + fieldId);
+                    if (!field.val().trim()) {
+                        field.addClass('is-invalid');
+                        isValid = false;
+                    } else {
+                        field.removeClass('is-invalid');
+                    }
+                });
+                if (!isValid) { showAlert('Please fill in all required fields.', 'danger'); }
+                return isValid;
+            }
+            function showAlert(message, type) {
+                const alertHtml = `<div class="alert alert-${type} alert-dismissible fade show" role="alert"><i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+                $('#alertContainer').html(alertHtml);
+                setTimeout(function() { $('#alertContainer .alert').alert('close'); }, 5000);
+            }
+            function rebuildDropdownFilters() {
+                table.columns().every(function() {
+                    let column = this;
+                    let select = $(column.header()).find('.filter-dropdown');
+                    if (select.length) {
+                        select.find('option:not([value=""])').remove();
+                        column.data().unique().sort().each(function(d, j) { if (d) select.append('<option value="' + d + '">' + d + '</option>'); });
+                    }
+                });
+            }
+            $('#generateBtn').click(function(e) {
+                e.preventDefault();
+                if (!validateForm()) { return; }
+                $('#tableContainer').addClass('loading');
+                const formData = {
+                    listType: $('#listType').val(),
+                    region: $('#region').val(),
+                    account: $('#account').val(),
+                    cobDate: $('#cobDate').val(),
+                    component: $('#component').val(),
+                    counterPartyCode: $('#counterPartyCode').val(),
+                    currency: $('#currency').val(),
+                    currentCobDate: $('#currentCobDate').val()
+                };
+                setTimeout(() => {
+                    try {
+                        table.clear();
+                        table.rows.add(sampleData);
+                        table.draw();
+                        rebuildDropdownFilters();
+                        $('#tableContainer').removeClass('loading');
+                        showAlert(`Data loaded successfully! Found ${sampleData.length} records.`, 'success');
+                    } catch (error) {
+                        $('#tableContainer').removeClass('loading');
+                        showAlert('Error loading data. Please try again.', 'danger');
+                        console.error('Error loading data:', error);
+                    }
+                }, 1500);
+            });
+            $('#cancelBtn').click(function() {
+                $('#dataFilterForm')[0].reset();
+                $('.is-invalid').removeClass('is-invalid');
+                if (table) { table.clear().draw(); }
+                showAlert('Form cleared successfully.', 'info');
+            });
+            $('#dataFilterForm input, #dataFilterForm select').on('input change', function() {
+                $(this).removeClass('is-invalid');
+            });
+            $('#dataFilterForm').on('submit', function(e) {
+                e.preventDefault();
+                $('#generateBtn').click();
+            });
+        });
+    </script>
+</body>
+</html>
