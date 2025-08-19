@@ -1,0 +1,637 @@
+@{
+    ViewBag.Title = "Reconciliation Report";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@section Head {
+    <style>
+        #reconTable thead th {
+            background-color: var(--primary-green) !important;
+            color: white !important;
+            border-color: var(--primary-green) !important;
+            position: relative;
+            padding: 12px 8px !important;
+        }
+
+        #reconTable thead .filter-dropdown {
+            background-color: rgba(255,255,255,.9);
+            border: 1px solid var(--dark-green);
+            color: #333;
+            width: 100%;
+            padding: 3px 5px;
+            font-size: 11px;
+            border-radius: 3px;
+            margin-top: 5px;
+        }
+
+            #reconTable thead .filter-dropdown option {
+                background-color: white;
+                color: #333;
+            }
+
+            #reconTable thead .filter-dropdown:focus {
+                outline: none;
+                border-color: var(--light-green);
+                box-shadow: 0 0 3px rgba(76,175,80,.5);
+            }
+
+        #reconTable.table-striped > tbody > tr:nth-of-type(odd) > td {
+            background-color: rgba(45,143,71,.05);
+        }
+
+        #reconTable.table-hover tbody tr:hover {
+            background-color: rgba(45,143,71,.1);
+        }
+
+        .group-by-container {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,.1);
+        }
+
+        .dtrg-group {
+            background-color: var(--primary-green) !important;
+            color: white !important;
+            font-weight: bold;
+        }
+
+        /* Loading Spinner */
+        .loading-overlay {
+            position: relative;
+        }
+
+            .loading-overlay::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(255,255,255,.8);
+                z-index: 1000;
+                display: none;
+            }
+
+            .loading-overlay.loading::before {
+                display: block;
+            }
+
+        .spinner-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%,-50%);
+            z-index: 1001;
+            display: none;
+        }
+
+        .loading-overlay.loading .spinner-container {
+            display: block;
+        }
+
+        /* Pin/Unpin functionality */
+        .form-panel {
+            transition: all 0.3s ease;
+        }
+
+            .form-panel.unpinned {
+                display: none !important;
+            }
+
+        .table-panel {
+            transition: all 0.3s ease;
+        }
+
+            .table-panel.expanded {
+                flex: 1 1 100%;
+                max-width: 100% !important;
+            }
+
+        /* Fixed position for show form button */
+        .show-form-btn {
+            position: fixed;
+            left: 0;
+            top: 200px;
+            z-index: 1050;
+            background: var(--primary-green);
+            border: none;
+            border-radius: 0 10px 10px 0;
+            padding: 12px 8px;
+            color: white;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+            display: none;
+        }
+
+            .show-form-btn:hover {
+                background: var(--dark-green);
+                color: white;
+            }
+
+        /* Alert container */
+        .alert-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 1050;
+            max-width: 400px;
+        }
+    </style>
+}
+
+<!-- Alert Container -->
+<div id="alertContainer" class="alert-container"></div>
+
+<div class="row">
+    <!-- Pinnable Left Panel - Form -->
+    <div class="col-lg-4 col-md-5 form-panel pinned" id="filterPanel">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-cogs me-2"></i>
+                    Reconciliation Parameters
+                </h5>
+                <button class="btn btn-sm btn-outline-light" id="pinBtn" title="Unpin Form Panel">
+                    <i class="fas fa-times me-1"></i>Unpin
+                </button>
+            </div>
+            <div class="card-body" style="max-height: 600px; overflow-y: auto;">
+                <form id="reconFilterForm">
+                    <div class="mb-3">
+                        <label for="listType" class="form-label">List Type <span class="text-danger">*</span></label>
+                        <select class="form-select" id="listType" required>
+                            <option value="">Select List Type</option>
+                            <option value="Type A">Type A</option>
+                            <option value="Type B">Type B</option>
+                        </select>
+                        <div class="invalid-feedback">Please select List Type.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="region" class="form-label">Region <span class="text-danger">*</span></label>
+                        <select class="form-select" id="region" required>
+                            <option value="">Select Region</option>
+                            <option value="US">US</option>
+                            <option value="Europe">Europe</option>
+                            <option value="Asia">Asia</option>
+                        </select>
+                        <div class="invalid-feedback">Please select Region.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="account" class="form-label">Account <span class="text-danger">*</span></label>
+                        <select class="form-select" id="account" required>
+                            <option value="">Select Account</option>
+                            <option value="Account A">Account A</option>
+                            <option value="Account B">Account B</option>
+                        </select>
+                        <div class="invalid-feedback">Please select Account.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="cobDate" class="form-label">COB Date <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control datepicker" id="cobDate" placeholder="Select date or enter" required>
+                        <div class="invalid-feedback">Please enter COB Date.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="component" class="form-label">Component</label>
+                        <input type="text" class="form-control" id="component" placeholder="Comp. Code, * or List">
+                    </div>
+                    <div class="mb-3">
+                        <label for="counterPartyCode" class="form-label">CounterParty Code</label>
+                        <input type="text" class="form-control" id="counterPartyCode" placeholder="CPY Code, * or List">
+                    </div>
+                    <div class="mb-3">
+                        <label for="currency" class="form-label">Currency</label>
+                        <input type="text" class="form-control" id="currency" placeholder="CCY, * or List">
+                    </div>
+                    <div class="mb-3">
+                        <label for="currentCobDate" class="form-label">Current COB Date</label>
+                        <input type="text" class="form-control datepicker" id="currentCobDate" placeholder="dd Mmm yyyy">
+                    </div>
+                    <div class="mb-3">
+                        <label for="dealContract" class="form-label">Deal/Contract No</label>
+                        <input type="text" class="form-control" id="dealContract" placeholder="Deal No, * or List">
+                    </div>
+                    <div class="mb-3">
+                        <label for="instrumentCode" class="form-label">Instrument Code</label>
+                        <input type="text" class="form-control" id="instrumentCode" placeholder="Instrument Code, * or List">
+                    </div>
+                    <div class="mb-3">
+                        <label for="listAdjustments" class="form-label">List Adjustments Only (Y/N)</label>
+                        <select class="form-select" id="listAdjustments">
+                            <option value="">Select</option>
+                            <option value="Y">Y</option>
+                            <option value="N">N</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="middleOfficeCode" class="form-label">Middle Office Code</label>
+                        <input type="text" class="form-control" id="middleOfficeCode" placeholder="MO Code, * or List">
+                    </div>
+                    <div class="mb-3">
+                        <label for="oldEffectiveDate" class="form-label">Old Effective Date</label>
+                        <input type="text" class="form-control datepicker" id="oldEffectiveDate" placeholder="dd Mmm yyyy">
+                    </div>
+                    <div class="mb-3">
+                        <label for="portfolio" class="form-label">Portfolio</label>
+                        <input type="text" class="form-control" id="portfolio" placeholder="Pft No, * or List">
+                    </div>
+                    <div class="mb-3">
+                        <label for="product" class="form-label">Product</label>
+                        <input type="text" class="form-control" id="product" placeholder="Product Code, * or List">
+                    </div>
+                    <div class="mb-3">
+                        <label for="rtPosition" class="form-label">RT Position</label>
+                        <select class="form-select" id="rtPosition">
+                            <option value="">Select</option>
+                            <option value="Long">Long</option>
+                            <option value="Short">Short</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="receivedDate" class="form-label">Received Date</label>
+                        <input type="text" class="form-control datepicker" id="receivedDate" placeholder="dd Mmm yyyy">
+                    </div>
+                    <div class="mb-3">
+                        <label for="sourceSystem" class="form-label">Source System</label>
+                        <input type="text" class="form-control" id="sourceSystem" placeholder="Code or List">
+                    </div>
+                    <div class="mb-3">
+                        <label for="variationType" class="form-label">Variation Type</label>
+                        <select class="form-select" id="variationType">
+                            <option value="">Select</option>
+                            <option value="Type 1">Type 1</option>
+                            <option value="Type 2">Type 2</option>
+                        </select>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="button" class="btn btn-secondary me-md-2" id="cancelBtn">
+                            <i class="fas fa-times me-1"></i>Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="generateBtn">
+                            <i class="fas fa-play me-1"></i>Generate
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel - Data Table -->
+    <div class="col-lg-8 col-md-7 table-panel" id="tablePanel">
+        <!-- Group By Controls -->
+        <div class="group-by-container">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center">
+                        <label for="groupBySelect" class="form-label mb-0 me-2">Group by:</label>
+                        <select id="groupBySelect" class="form-select" style="width: auto;">
+                            <option value="">None</option>
+                            <option value="0">CounterParty</option>
+                            <option value="1">Deal/Contract</option>
+                            <option value="2">Transaction</option>
+                            <option value="3">DealVersion</option>
+                            <option value="4">Component</option>
+                            <option value="5">Amount</option>
+                            <option value="14">Currency</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center justify-content-md-end">
+                        <label for="entriesPerPage" class="form-label mb-0 me-2">Show:</label>
+                        <select id="entriesPerPage" class="form-select" style="width: auto;">
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                        <span class="ms-1">entries</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-container loading-overlay" id="tableContainer">
+            <div class="spinner-container">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Reconciliation Results
+                </h5>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-success btn-sm" id="excelBtn">
+                        <i class="fas fa-file-excel me-1"></i>Excel
+                    </button>
+                    <button class="btn btn-info btn-sm" id="copyBtn">
+                        <i class="fas fa-copy me-1"></i>Copy
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table id="reconTable" class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>CounterParty</th>
+                            <th>Deal/Contract</th>
+                            <th>Transaction</th>
+                            <th>DealVersion</th>
+                            <th>Component</th>
+                            <th>Amount</th>
+                            <th>ValueDate</th>
+                            <th>EffectiveDate</th>
+                            <th>ReceivedDate</th>
+                            <th>InputDate</th>
+                            <th>MiddleOffice</th>
+                            <th>Link_Ref</th>
+                            <th>AddUserName</th>
+                            <th>SystemRef</th>
+                            <th>Currency</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="15" class="text-center text-muted py-5">
+                                <i class="fas fa-info-circle me-2"></i>
+                                No data available. Click "Generate" to load data.
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-success">
+                            <td colspan="5" class="text-end fw-bold">Sum of Amount:</td>
+                            <td id="amountSum" class="fw-bold">0.00</td>
+                            <td colspan="9"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Show Form Button (appears when form is hidden) - FIXED POSITION -->
+<button class="btn show-form-btn" id="showFormBtn" title="Show Parameters Panel">
+    <i class="fas fa-chevron-right"></i>
+</button>
+
+@section Scripts {
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/rowgroup/1.4.1/js/dataTables.rowGroup.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap-datepicker@1.10.0/dist/js/bootstrap-datepicker.min.js"></script>
+
+    <script>
+        $(document).ready(function () {
+            // Sample reconciliation data
+            const sampleReconData = [
+                { "CounterParty": "JP Morgan", "Deal/Contract": "CTR-001", "Transaction": "TXN-001", "DealVersion": "1.0", "Component": "Interest", "Amount": 125000, "ValueDate": "2024-01-15", "EffectiveDate": "2024-01-15", "ReceivedDate": "2024-01-14", "InputDate": "2024-01-14", "MiddleOffice": "MO-NYC", "Link_Ref": "LNK-001", "AddUserName": "jdoe", "SystemRef": "SYS-001", "Currency": "USD" },
+                { "CounterParty": "Goldman Sachs", "Deal/Contract": "CTR-002", "Transaction": "TXN-002", "DealVersion": "1.1", "Component": "Principal", "Amount": 250000, "ValueDate": "2024-01-16", "EffectiveDate": "2024-01-16", "ReceivedDate": "2024-01-15", "InputDate": "2024-01-15", "MiddleOffice": "MO-NYC", "Link_Ref": "LNK-002", "AddUserName": "jsmith", "SystemRef": "SYS-002", "Currency": "USD" },
+                { "CounterParty": "Deutsche Bank", "Deal/Contract": "CTR-003", "Transaction": "TXN-003", "DealVersion": "1.0", "Component": "Fee", "Amount": 75000, "ValueDate": "2024-01-17", "EffectiveDate": "2024-01-17", "ReceivedDate": "2024-01-16", "InputDate": "2024-01-16", "MiddleOffice": "MO-LON", "Link_Ref": "LNK-003", "AddUserName": "mbrown", "SystemRef": "SYS-003", "Currency": "EUR" },
+                { "CounterParty": "Barclays", "Deal/Contract": "CTR-004", "Transaction": "TXN-004", "DealVersion": "2.0", "Component": "Interest", "Amount": 180000, "ValueDate": "2024-01-18", "EffectiveDate": "2024-01-18", "ReceivedDate": "2024-01-17", "InputDate": "2024-01-17", "MiddleOffice": "MO-LON", "Link_Ref": "LNK-004", "AddUserName": "swilson", "SystemRef": "SYS-004", "Currency": "GBP" },
+                { "CounterParty": "UBS", "Deal/Contract": "CTR-005", "Transaction": "TXN-005", "DealVersion": "1.0", "Component": "Principal", "Amount": 320000, "ValueDate": "2024-01-19", "EffectiveDate": "2024-01-19", "ReceivedDate": "2024-01-18", "InputDate": "2024-01-18", "MiddleOffice": "MO-ZUR", "Link_Ref": "LNK-005", "AddUserName": "agarcia", "SystemRef": "SYS-005", "Currency": "CHF" }
+            ];
+
+            let table;
+            $('.datepicker').datepicker({ format: 'dd M yyyy', autoclose: true, todayHighlight: true, orientation: 'bottom auto' });
+
+            // Alert function
+            function showAlert(message, type) {
+                const alertHtml = '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert">' +
+                    '<i class="fas fa-' + (type === 'success' ? 'check-circle' : type === 'danger' ? 'exclamation-triangle' : 'info-circle') + ' me-2"></i>' +
+                    message +
+                    '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>' +
+                    '</div>';
+                $('#alertContainer').html(alertHtml);
+                setTimeout(function () {
+                    $('#alertContainer .alert').alert('close');
+                }, 5000);
+            }
+
+            function initializeReconTable() {
+                if ($.fn.DataTable.isDataTable('#reconTable')) {
+                    $('#reconTable').DataTable().destroy();
+                }
+
+                table = $('#reconTable').DataTable({
+                    data: [],
+                    columns: [
+                        { data: 'CounterParty', title: 'CounterParty' },
+                        { data: 'Deal/Contract', title: 'Deal/Contract' },
+                        { data: 'Transaction', title: 'Transaction' },
+                        { data: 'DealVersion', title: 'DealVersion' },
+                        { data: 'Component', title: 'Component' },
+                        { data: 'Amount', title: 'Amount', render: function (data) { return parseFloat(data).toLocaleString('en-US', { minimumFractionDigits: 2 }); } },
+                        { data: 'ValueDate', title: 'ValueDate' },
+                        { data: 'EffectiveDate', title: 'EffectiveDate' },
+                        { data: 'ReceivedDate', title: 'ReceivedDate' },
+                        { data: 'InputDate', title: 'InputDate' },
+                        { data: 'MiddleOffice', title: 'MiddleOffice' },
+                        { data: 'Link_Ref', title: 'Link_Ref' },
+                        { data: 'AddUserName', title: 'AddUserName' },
+                        { data: 'SystemRef', title: 'SystemRef' },
+                        { data: 'Currency', title: 'Currency' }
+                    ],
+                    pageLength: 10,
+                    responsive: true,
+                    scrollX: true,
+                    order: [],
+                    rowGroup: {
+                        dataSrc: null,
+                        enable: false
+                    },
+                    footerCallback: function (row, data, start, end, display) {
+                        let api = this.api();
+                        let total = api.column(5, { page: 'current' }).data().reduce(function (a, b) {
+                            return parseFloat(a) + parseFloat(b);
+                        }, 0);
+                        $('#amountSum').text(total.toLocaleString('en-US', { minimumFractionDigits: 2 }));
+                    },
+                    language: {
+                        emptyTable: "No data available. Click 'Generate' to load data.",
+                        zeroRecords: "No matching records found"
+                    },
+                    initComplete: function () {
+                        this.api().columns().every(function () {
+                            let column = this;
+                            let select = $('<select class="filter-dropdown"><option value="">All</option></select>')
+                                .appendTo($(column.header()))
+                                .on('change', function () {
+                                    let val = $.fn.dataTable.util.escapeRegex($(this).val());
+                                    column.search(val ? '^' + val + '$' : '', true, false).draw();
+                                });
+                            column.data().unique().sort().each(function (d, j) {
+                                if (d) select.append('<option value="' + d + '">' + d + '</option>');
+                            });
+                        });
+                    }
+                });
+            }
+
+            initializeReconTable();
+
+            // Form validation function
+            function validateForm() {
+                let isValid = true;
+                const requiredFields = ['listType', 'region', 'account', 'cobDate'];
+
+                requiredFields.forEach(function (fieldId) {
+                    const field = $('#' + fieldId);
+                    if (!field.val() || field.val().trim() === '') {
+                        field.addClass('is-invalid');
+                        field.removeClass('is-valid');
+                        isValid = false;
+                    } else {
+                        field.removeClass('is-invalid');
+                        field.addClass('is-valid');
+                    }
+                });
+
+                if (!isValid) {
+                    showAlert('Please fill in all required fields.', 'danger');
+                }
+                return isValid;
+            }
+
+            function rebuildDropdownFilters() {
+                table.columns().every(function () {
+                    let column = this;
+                    let select = $(column.header()).find('.filter-dropdown');
+                    if (select.length) {
+                        select.find('option:not([value=""])').remove();
+                        column.data().unique().sort().each(function (d, j) {
+                            if (d) select.append('<option value="' + d + '">' + d + '</option>');
+                        });
+                    }
+                });
+            }
+
+            // Working Group By Functionality
+            $('#groupBySelect').on('change', function () {
+                const columnIndex = $(this).val();
+                if (table) {
+                    if (columnIndex === '') {
+                        table.rowGroup().disable();
+                        table.draw();
+                    } else {
+                        table.rowGroup().dataSrc(parseInt(columnIndex));
+                        table.rowGroup().enable();
+                        table.order([parseInt(columnIndex), 'asc']).draw();
+                    }
+                }
+            });
+
+            $('#generateBtn').click(function (e) {
+                e.preventDefault();
+                if (!validateForm()) { return; }
+
+                $('#tableContainer').addClass('loading');
+
+                setTimeout(function () {
+                    try {
+                        table.clear();
+                        table.rows.add(sampleReconData);
+                        table.draw();
+                        rebuildDropdownFilters();
+                        $('#tableContainer').removeClass('loading');
+                        showAlert('Reconciliation report generated successfully! Found ' + sampleReconData.length + ' records.', 'success');
+                    } catch (error) {
+                        $('#tableContainer').removeClass('loading');
+                        showAlert('Error generating report. Please try again.', 'danger');
+                    }
+                }, 1500);
+            });
+
+            $('#cancelBtn').click(function () {
+                $('#reconFilterForm')[0].reset();
+                $('.is-invalid').removeClass('is-invalid');
+                $('.is-valid').removeClass('is-valid');
+                if (table) { table.clear().draw(); }
+                $('#amountSum').text('0.00');
+                showAlert('Form cleared successfully.', 'info');
+            });
+
+            $('#entriesPerPage').on('change', function () {
+                if (table) { table.page.len($(this).val()).draw(); }
+            });
+
+            // Export functionality
+            $('#excelBtn').click(function () {
+                if (table && table.data().count() > 0) {
+                    let data = table.data().toArray();
+                    let csv = 'CounterParty,Deal/Contract,Transaction,DealVersion,Component,Amount,ValueDate,EffectiveDate,ReceivedDate,InputDate,MiddleOffice,Link_Ref,AddUserName,SystemRef,Currency\n';
+                    data.forEach(row => {
+                        csv += row.CounterParty + ',' + row['Deal/Contract'] + ',' + row.Transaction + ',' + row.DealVersion + ',' + row.Component + ',' + row.Amount + ',' + row.ValueDate + ',' + row.EffectiveDate + ',' + row.ReceivedDate + ',' + row.InputDate + ',' + row.MiddleOffice + ',' + row.Link_Ref + ',' + row.AddUserName + ',' + row.SystemRef + ',' + row.Currency + '\n';
+                    });
+                    let blob = new Blob([csv], { type: 'text/csv' });
+                    let url = URL.createObjectURL(blob);
+                    let a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'reconciliation_report.csv';
+                    a.click();
+                    showAlert('Report exported successfully!', 'success');
+                } else {
+                    showAlert('No data to export', 'warning');
+                }
+            });
+
+            $('#copyBtn').click(function () {
+                if (table && table.data().count() > 0) {
+                    let data = table.data().toArray();
+                    let text = data.map(row => Object.values(row).join('\t')).join('\n');
+                    navigator.clipboard.writeText(text).then(() => {
+                        showAlert('Data copied to clipboard', 'success');
+                    });
+                } else {
+                    showAlert('No data to copy', 'warning');
+                }
+            });
+
+            // Pin/Unpin functionality with proper labels
+            let isPinned = true;
+            function toggleFormPanel() {
+                const formPanel = $('#filterPanel');
+                const tablePanel = $('#tablePanel');
+                const showFormBtn = $('#showFormBtn');
+                const pinBtn = $('#pinBtn');
+
+                if (isPinned) {
+                    // Unpin: Hide form panel
+                    formPanel.addClass('unpinned');
+                    tablePanel.addClass('expanded');
+                    showFormBtn.show();
+                    pinBtn.html('<i class="fas fa-thumbtack me-1"></i>Pin');
+                    isPinned = false;
+                    showAlert('Form panel unpinned. Click the button on the left to show it again.', 'info');
+                } else {
+                    // Pin: Show form panel
+                    formPanel.removeClass('unpinned');
+                    tablePanel.removeClass('expanded');
+                    showFormBtn.hide();
+                    pinBtn.html('<i class="fas fa-times me-1"></i>Unpin');
+                    isPinned = true;
+                    showAlert('Form panel pinned back.', 'info');
+                }
+            }
+
+            $('#pinBtn').on('click', toggleFormPanel);
+            $('#showFormBtn').click(toggleFormPanel);
+
+            // Remove validation classes on input
+            $('#reconFilterForm input, #reconFilterForm select').on('input change', function () {
+                $(this).removeClass('is-invalid is-valid');
+            });
+
+            $('#reconFilterForm').on('submit', function (e) {
+                e.preventDefault();
+                $('#generateBtn').click();
+            });
+        });
+    </script>
+}
