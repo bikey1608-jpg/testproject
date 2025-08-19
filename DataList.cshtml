@@ -1,0 +1,368 @@
+@{
+    ViewBag.Title = "Data List";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@section Head {
+<style>
+    /* Styling same as reconciliation for consistency */
+    #dataTable thead th {
+        background-color: var(--primary-green) !important;
+        color: white !important;
+        border-color: var(--primary-green) !important;
+        position: relative;
+        padding: 12px 8px !important;
+    }
+    #dataTable thead .column-filter {
+        width: 100%;
+        padding: 3px 5px;
+        font-size: 90%;
+        border-radius: 3px;
+        border: 1px solid #ccc;
+        margin-top: 3px;
+    }
+    #dataTable .dtrg-group {
+        background-color: var(--primary-green) !important;
+        color: white !important;
+        font-weight: 600;
+    }
+    .group-by-container {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.07);
+    }
+    /* Loader */
+    .loading-overlay .spinner-container {
+        display: none;
+        position: absolute;
+        top: 45%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 9999;
+    }
+    .loading-overlay.loading .spinner-container {
+        display: block;
+    }
+    .loading-overlay.loading table,
+    .loading-overlay.loading .dataTables_paginate,
+    .loading-overlay.loading .dataTables_info,
+    .loading-overlay.loading .dataTables_length {
+        opacity: 0.5;
+        pointer-events: none;
+    }
+</style>
+}
+
+<div class="row" style="min-height: calc(100vh - 100px);">
+    <div class="col-md-4 col-lg-4 form-panel pinned" id="filterPanel">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filter Criteria</h5>
+                <button class="btn btn-sm btn-outline-light" id="pinBtn" title="Unpin Form"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="card-body" style="max-height: 720px; overflow-y: auto; padding-bottom: 0.6rem;">
+                <form id="dataListForm" novalidate>
+                    <div class="mb-3">
+                        <label for="listType" class="form-label">List Type *</label>
+                        <select id="listType" class="form-select form-select-lg mb-2" required>
+                            <option value="">Select List Type</option>
+                            <option>Option 1</option><option>Option 2</option><option>Option 3</option>
+                        </select>
+                        <div class="invalid-feedback">Please select List Type.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="region" class="form-label">Region *</label>
+                        <select id="region" class="form-select form-select-lg mb-2" required>
+                            <option value="">Select Region</option>
+                            <option>US</option><option>Europe</option><option>Asia</option><option>Global</option>
+                        </select>
+                        <div class="invalid-feedback">Please select Region.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="account" class="form-label">Account *</label>
+                        <select id="account" class="form-select form-select-lg mb-2" required>
+                            <option value="">Select Account</option>
+                            <option>Account A</option><option>Account B</option><option>Account C</option>
+                        </select>
+                        <div class="invalid-feedback">Please select Account.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="cobDate" class="form-label">COB Date *</label>
+                        <input type="text" placeholder="Select date" autocomplete="off" id="cobDate" class="form-control form-control-lg mb-2 datepicker" required>
+                        <div class="invalid-feedback">Please enter COB Date.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="component" class="form-label">Component</label>
+                        <input id="component" type="text" placeholder="Comp. Code, * or List" class="form-control form-control-lg mb-2">
+                    </div>
+                    <div class="mb-3">
+                        <label for="counterPartyCode" class="form-label">CounterParty Code</label>
+                        <input id="counterPartyCode" type="text" placeholder="CPY Code, * or List" class="form-control form-control-lg mb-2">
+                    </div>
+                    <div class="mb-3">
+                        <label for="currency" class="form-label">Currency</label>
+                        <input id="currency" type="text" placeholder="CCY, * or List" class="form-control form-control-lg mb-2">
+                    </div>
+                    <div class="mb-3">
+                        <label for="currentCobDate" class="form-label">Current COB Date</label>
+                        <input id="currentCobDate" type="text" placeholder="dd Mmm yyyy" class="form-control form-control-lg mb-2 datepicker">
+                    </div>
+                    <div class="d-grid d-md-flex justify-content-md-end">
+                        <button type="button" class="btn btn-secondary me-2" id="cancelBtn">Cancel</button>
+                        <button type="submit" class="btn btn-success" id="generateBtn">Generate</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col form-panel table-panel" id="mainTablePanel">
+        <div class="group-by-container d-flex justify-content-between align-items-center flex-wrap">
+            <div class="mb-2 mb-md-0">
+                <label for="groupBy" class="me-2 fw-semibold">Group by:</label>
+                <select id="groupBy" class="form-select d-inline-block" style="width: auto;">
+                    <option value="">None</option>
+                    <option value="0">Source</option>
+                    <option value="1">Portfolio</option>
+                    <option value="2">Product</option>
+                    <option value="3">Currency</option>
+                    <option value="4">Instrument</option>
+                    <option value="5">CounterParty</option>
+                    <option value="6">Deal/Contract</option>
+                </select>
+            </div>
+            <div>
+                <label for="entries" class="me-2 fw-semibold">Show:</label>
+                <select id="entries" class="form-select d-inline-block" style="width: auto;">
+                    <option value="10">10</option><option value="20">20</option><option value="50">50</option><option value="100">100</option>
+                </select>
+            </div>
+        </div>
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="m-0"><i class="fas fa-table me-2"></i>Data Results</h5>
+                <div>
+                    <button id="excelBtn" class="btn btn-sm btn-success me-2"><i class="fas fa-file-excel me-1"></i>Excel</button>
+                    <button id="copyBtn" class="btn btn-sm btn-info"><i class="fas fa-copy me-1"></i>Copy</button>
+                </div>
+            </div>
+            <div id="tableContainer" class="loading-overlay" style="position:relative;">
+                <div class="spinner-container">
+                    <div class="spinner-border text-primary"></div>
+                </div>
+                <div class="card-body p-0" style="overflow-x:auto;">
+                    <table id="dataTable" class="table table-striped table-hover" style="min-width:800px;">
+                        <thead>
+                            <tr>
+                                <th>Source</th>
+                                <th>Portfolio</th>
+                                <th>Product</th>
+                                <th>Currency</th>
+                                <th>Instrument</th>
+                                <th>CounterParty</th>
+                                <th>Deal/Contract</th>
+                            </tr>
+                            <tr>
+                                <th><select class="column-filter form-select form-select-sm"><option value="">All</option></select></th>
+                                <th><select class="column-filter form-select form-select-sm"><option value="">All</option></select></th>
+                                <th><select class="column-filter form-select form-select-sm"><option value="">All</option></select></th>
+                                <th><select class="column-filter form-select form-select-sm"><option value="">All</option></select></th>
+                                <th><select class="column-filter form-select form-select-sm"><option value="">All</option></select></th>
+                                <th><select class="column-filter form-select form-select-sm"><option value="">All</option></select></th>
+                                <th><select class="column-filter form-select form-select-sm"><option value="">All</option></select></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="7" class="text-center p-5 text-muted">Click Generate to load data.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer py-2">
+                    <div id="dataTable_info" class="dataTables_info"></div>
+                    <nav id="dataTable_paginate"></nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<button class="btn btn-success" id="togglePanelBtn" style="position:fixed; top:130px; left:10px; display:none; z-index:1000;"><i class="fas fa-angle-right"></i></button>
+
+@section Scripts {
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/rowgroup/1.4.1/js/dataTables.rowGroup.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+<script>
+$(function(){
+    $(".datepicker").datepicker({format:'dd M yyyy',autoclose:true,todayHighlight:true});
+    
+    let sampleData = [
+        {Source:"System A",Portfolio:"Fixed Income",Product:"Corporate Bond",Currency:"USD",Instrument:"US12345678",CounterParty:"Goldman Sachs", "Deal/Contract":"CTR-001"},
+        {Source:"System B",Portfolio:"Equity",Product:"Common Stock",Currency:"USD",Instrument:"US87654321",CounterParty:"JP Morgan", "Deal/Contract":"CTR-002"},
+        {Source:"System A",Portfolio:"Fixed Income",Product:"Government Bond",Currency:"EUR",Instrument:"EU55667788",CounterParty:"BNP Paribas", "Deal/Contract":"CTR-004"},
+        {Source:"System C",Portfolio:"Equity",Product:"Preferred Stock",Currency:"GBP",Instrument:"GB99887766",CounterParty:"Barclays", "Deal/Contract":"CTR-005"},
+        {Source:"System B",Portfolio:"Derivatives",Product:"FX Forward",Currency:"JPY",Instrument:"JP55443322",CounterParty:"Nomura", "Deal/Contract":"CTR-006"},
+        {Source:"System A",Portfolio:"Fixed Income",Product:"Municipal Bond",Currency:"USD",Instrument:"US66778899",CounterParty:"Morgan Stanley", "Deal/Contract":"CTR-007"},
+        {Source:"System A",Portfolio:"Equity",Product:"ETF",Currency:"USD",Instrument:"US44556677",CounterParty:"BlackRock", "Deal/Contract":"CTR-008"},
+        {Source:"System C",Portfolio:"Derivatives",Product:"Credit Default Swap",Currency:"EUR",Instrument:"EU33445566",CounterParty:"UBS", "Deal/Contract":"CTR-009"},
+        {Source:"System B",Portfolio:"Fixed Income",Product:"Treasury Bill",Currency:"USD",Instrument:"US22334455",CounterParty:"Citibank", "Deal/Contract":"CTR-010"},
+    ];
+    
+    let table;
+    function initTable(){
+        if($.fn.dataTable.isDataTable('#dataTable')) {
+            $('#dataTable').DataTable().destroy();
+            $('#dataTable tbody').empty();
+        }
+        table = $('#dataTable').DataTable({
+            data: [],
+            columns: [
+                {data:'Source'},
+                {data:'Portfolio'},
+                {data:'Product'},
+                {data:'Currency'},
+                {data:'Instrument'},
+                {data:'CounterParty'},
+                {data:'Deal/Contract'}
+            ],
+            paging: true,
+            responsive: true,
+            lengthChange: false,
+            info: true,
+            order: [],
+            rowGroup: {dataSrc:null, enable:false},
+            language: {
+                emptyTable: "Click Generate to load data",
+                zeroRecords: "No records found",
+                lengthMenu: "_MENU_ entries per page"
+            },
+            dom: "rt<'row p-2'<'col-md-6'i><'col-md-6'p>>"
+        });
+    }
+    initTable();
+
+    // Initialize filter selects
+    function initFilters(){
+        $('#dataTable thead tr:eq(1) th').each(function(i){
+            let column = table.column(i);
+            let select = $(this).find('select');
+            select.empty().append('<option value="">All</option>');
+            column.data().unique().sort().each(function(d){
+                if(d) select.append($('<option>').text(d).attr('value',d));
+            });
+            select.off('change').on('change', function(){
+                column.search($(this).val(),true,false).draw();
+            });
+        });
+    }
+
+    initFilters();
+
+    // Filter form validation
+    function validateForm(){
+        let valid = true;
+        ['listType','region','account','cobDate'].forEach(id=>{
+            if(!$('#'+id).val()){
+                $('#'+id).addClass('is-invalid');
+                valid = false;
+            } else {
+                $('#'+id).removeClass('is-invalid');
+            }
+        });
+        if(!valid) showAlert('Please fill all mandatory fields', 'danger');
+        return valid;
+    }
+    
+    // Show alert helper
+    function showAlert(msg,type){
+        $('#alertContainer').html(`<div class="alert alert-${type} alert-dismissible fade show" role="alert">${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`);
+        setTimeout(() => { $('#alertContainer .alert').alert('close'); }, 5000);
+    }
+
+    // Generate button
+    $('#dataListForm').on('submit', function(e){
+        e.preventDefault();
+        if(!validateForm())return;
+        $('#tableContainer').addClass('loading');
+        $('#dataTable tbody').html('');
+        setTimeout(() => {
+            table.clear().rows.add(sampleData).draw();
+            initFilters();
+            $('#tableContainer').removeClass('loading');
+            showAlert('Data loaded successfully', 'success');
+        }, 800);
+    });
+
+    // Cancel button
+    $('#cancelBtn').on('click', function(){
+        $('#dataListForm')[0].reset();
+        table.clear().draw();
+        showAlert('Form cleared', 'info');
+        $('#tableContainer').removeClass('loading');
+    });
+
+    // Entries per page
+    $('#entries').on('change', function(){
+        table.page.len($(this).val()).draw();
+    });
+
+    // Group by
+    $('#groupBy').on('change', function(){
+        if(!this.value){
+            table.rowGroup().disable(); table.draw();
+        } else {
+            table.rowGroup().dataSrc(Number(this.value)); table.rowGroup().enable(); table.order([Number(this.value),'asc']).draw();
+        }
+    });
+
+    // Export buttons
+    $('#excelBtn').on('click',function(){
+        // Simple CSV export
+        if(table.data().count()==0) return;
+        let csv = '';
+        csv += 'Source,Portfolio,Product,Currency,Instrument,CounterParty,Deal/Contract\n';
+        table.rows({search:'applied'}).data().each(function(d){
+            csv+= `${d.Source},${d.Portfolio},${d.Product},${d.Currency},${d.Instrument},${d.CounterParty},${d["Deal/Contract"]}\n`;
+        });
+        let blob = new Blob([csv],{type:'text/csv'});
+        let url = URL.createObjectURL(blob);
+        let a = document.createElement('a');
+        a.href=url; a.download='DataList.csv'; a.click();
+    });
+
+    $('#copyBtn').on('click',function(){
+        if(table.data().count()==0) return;
+        let dataText = '';
+        table.rows({search:'applied'}).data().each(function(d){
+            dataText += Object.values(d).join('\t')+'\n';
+        });
+        navigator.clipboard.writeText(dataText);
+        showAlert('Copied to clipboard', 'success');
+    });
+
+    // Toggle Panel (pin/unpin)
+    let pinned = true;
+    $('#pinBtn').on('click', function(){
+        pinned = !pinned;
+        if(pinned){
+            $('#filterPanel').removeClass('unpinned');
+            $('#mainTablePanel').removeClass('expanded');
+            $('#pinBtn').html('<i class="fas fa-times"></i>');
+            $('#togglePanelBtn').hide();
+        } else {
+            $('#filterPanel').addClass('unpinned');
+            $('#mainTablePanel').addClass('expanded');
+            $('#pinBtn').html('<i class="fas fa-thumbtack"></i>');
+            $('#togglePanelBtn').show();
+        }
+    });
+    $('#togglePanelBtn').on('click', function(){
+        pinned = true;
+        $('#filterPanel').removeClass('unpinned');
+        $('#mainTablePanel').removeClass('expanded');
+        $(this).hide();
+        $('#pinBtn').html('<i class="fas fa-times"></i>');
+    });
+});
+</script>
