@@ -1,0 +1,165 @@
+/* Ensure table takes full width and columns are properly sized */
+.dataTables_wrapper {
+    width: 100% !important;
+}
+
+/* Set minimum width for the last column */
+table.dataTable thead th:last-child,
+table.dataTable tbody td:last-child {
+    min-width: 200px !important;
+    max-width: 300px !important;
+    word-wrap: break-word;
+    white-space: normal;
+}
+
+/* Enable horizontal scrolling if needed */
+.dataTables_scrollBody {
+    overflow-x: auto !important;
+}
+
+
+
+
+
+
+/* Improve text readability */
+table.dataTable tbody td {
+    white-space: normal !important;
+    word-wrap: break-word;
+    max-width: 200px;
+    font-size: 12px; /* Reduce font size if text is too large */
+    line-height: 1.2;
+    padding: 8px 4px;
+}
+
+/* Specific styling for the systemtext column */
+table.dataTable tbody td:last-child {
+    font-size: 11px;
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Add hover effect to show full text */
+table.dataTable tbody td:last-child:hover {
+    overflow: visible;
+    white-space: normal;
+    background-color: #f9f9f9;
+    z-index: 999;
+    position: relative;
+    border: 1px solid #ddd;
+}
+
+
+
+
+
+
+
+
+// Add clear button to each filter dropdown
+$(document).ready(function() {
+    // Add clear button to each column filter
+    $('.dataTables_thead_filter select').each(function() {
+        var $select = $(this);
+        var $clearBtn = $('<button type="button" class="clear-filter" style="margin-left: 5px; font-size: 10px; padding: 2px 5px;">×</button>');
+        
+        $select.after($clearBtn);
+        
+        $clearBtn.on('click', function() {
+            $select.val('').trigger('change');
+            // Trigger DataTable search update
+            table.column($select.closest('th').index()).search('').draw();
+        });
+    });
+    
+    // Add global clear all filters button
+    $('.dataTables_filter').append('<button type="button" id="clearAllFilters" style="margin-left: 10px;">Clear All Filters</button>');
+    
+    $('#clearAllFilters').on('click', function() {
+        $('.dataTables_thead_filter select').val('').trigger('change');
+        table.search('').columns().search('').draw();
+    });
+});
+
+
+
+
+
+
+
+
+$('#yourTableId').DataTable({
+    scrollX: true,
+    scrollCollapse: true,
+    columnDefs: [
+        { width: "100px", targets: [0, 1, 2] }, // First 3 columns
+        { width: "120px", targets: [3, 4] },    // Middle columns
+        { width: "150px", targets: [5] },       // AdjUserName
+        { 
+            width: "250px", 
+            targets: -1,                         // Last column (systemtext)
+            render: function(data, type, row) {
+                if (type === 'display' && data.length > 50) {
+                    return '<span title="' + data + '">' + data.substr(0, 47) + '...</span>';
+                }
+                return data;
+            }
+        }
+    ],
+    // Other existing configurations...
+});
+
+
+
+
+
+
+
+// Enhanced filter with better UX
+function setupColumnFilters(table) {
+    table.columns().every(function() {
+        var that = this;
+        var column = this;
+        var $header = $(column.header());
+        
+        // Create select element
+        var select = $('<select class="form-control form-control-sm"><option value="">All</option></select>')
+            .appendTo($header.find('.filter-container'))
+            .on('change', function() {
+                var val = $.fn.dataTable.util.escapeRegex($(this).val());
+                column.search(val ? '^' + val + '$' : '', true, false).draw();
+            });
+        
+        // Populate select with unique values
+        column.data().unique().sort().each(function(d) {
+            if (d) {
+                select.append('<option value="' + d + '">' + d + '</option>');
+            }
+        });
+    });
+}
+
+
+
+
+
+
+
+/* Responsive table handling */
+@media (max-width: 1200px) {
+    table.dataTable {
+        font-size: 11px;
+    }
+    
+    table.dataTable thead th,
+    table.dataTable tbody td {
+        padding: 4px 2px;
+    }
+}
+
+/* Ensure scrollable container */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
