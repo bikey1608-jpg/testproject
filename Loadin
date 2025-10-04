@@ -1,0 +1,82 @@
+public async Task<string> AuthenticateBOUser(string username, string password, string baseUrl, string authType = "secEnterprise")
+{
+    using (var client = new HttpClient())
+    {
+        // Construct the XML request body for authentication
+        var requestBody = $@"
+<attrs xmlns=""http://www.sap.com/rws/bip"">
+    <attr name=""password"" type=""string"">{password}</attr>
+    <attr name=""clientType"" type=""string"">SDK</attr>
+    <attr name=""auth"" type=""string"" possibilities=""secEnterprise,secLDAP,secWinAD,secSAPR3"">{authType}</attr>
+    <attr name=""userName"" type=""string"">{username}</attr>
+</attrs>";
+
+        var content = new StringContent(requestBody, Encoding.UTF8, "application/xml");
+        // POST to the BI RESTful logon endpoint
+        var response = await client.PostAsync($"{baseUrl}/logon/long", content);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var responseData = await response.Content.ReadAsStringAsync();
+            var xmlDoc = new XmlDocument();
+            xmlDoc.LoadXml(responseData);
+
+            // Extract logon token from response XML
+            var node = xmlDoc.SelectSingleNode("//attr[@name='logonToken']");
+            if (node != null)
+                return node.InnerText.Trim();
+            else
+                throw new Exception("logonToken not found in the response.");
+        }
+        else
+        {
+            throw new Exception($"Authentication failed: {response.ReasonPhrase}");
+        }
+    }
+}
+
+
+
+
+
+
+$('#groupByColumn').on('change', function() {
+    var groupBy = $(this).val();
+    groupByAndDisplaySubtotal(groupBy);
+});
+
+function groupByAndDisplaySubtotal(groupBy) {
+    var data = $('#myTable').DataTable().rows().data().toArray();
+    var groupedData = {};
+    data.forEach(function(row) {
+        var key = row[groupByIndex(groupBy)];
+        if (!groupedData[key]) groupedData[key] = [];
+        groupedData[key].push(row);
+    });
+
+    var tbodyHtml = '';
+    $.each(groupedData, function(key, rows) {
+        // Insert group header row
+        tbodyHtml += '<tr class="group-header"><td colspan="5">' + groupBy + ': ' + key + '</td></tr>';
+        // Insert individual rows
+        var salarySum = 0;
+        rows.forEach(function(row) {
+            salarySum += parseFloat(row[4]);
+            tbodyHtml += '<tr>';
+            row.forEach(function(cell) {
+                tbodyHtml += '<td>' + cell + '</td>';
+            });
+            tbodyHtml += '</tr>';
+        });
+        // Insert subtotal row at end of group
+        tbodyHtml += '<tr class="group-total"><td colspan="4">Subtotal Salary</td><td>' + salarySum + '</td></tr>';
+    });
+    $('#myTable tbody').html(tbodyHtml);
+}
+
+function groupByIndex(colName) {
+    var columns = ['name', 'age', 'gender', 'dob', 'salary'];
+    return columns.indexOf(colName);
+}
+
+
