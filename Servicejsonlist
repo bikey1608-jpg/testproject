@@ -1,0 +1,21 @@
+{
+  "_comment": "Single source of truth for ALL Core + DFM service deployments.",
+  "_tokens":  "Core: APP_NAME + NUM_PROCESSORS + APP_CORE_TYPE. DFM: APP_NAME only.",
+  "_action":  "To add a service: add one entry. No pipeline or script changes needed.",
+
+  "services": [
+    { "id": "CORE01", "type": "core", "tag": "1",  "app_name": "Core01_P12_FI", "num_processors": "12", "app_core_type": "P", "config": "Bnpp.Xtarget.Core.Service.Host.exe.config" },
+    { "id": "CORE02", "type": "core", "tag": "2",  "app_name": "Core02_P12_FI", "num_processors": "12", "app_core_type": "P", "config": "Bnpp.Xtarget.Core.Service.Host.exe.config" },
+    { "id": "CORE03", "type": "core", "tag": "3",  "app_name": "Core03_P12_FI", "num_processors": "12", "app_core_type": "P", "config": "Bnpp.Xtarget.Core.Service.Host.exe.config" },
+    { "id": "CORE04", "type": "core", "tag": "4",  "app_name": "Core04_P12_FI", "num_processors": "12", "app_core_type": "P", "config": "Bnpp.Xtarget.Core.Service.Host.exe.config" },
+    { "id": "CORE05", "type": "core", "tag": "5",  "app_name": "Core05_P12_FI", "num_processors": "12", "app_core_type": "P", "config": "Bnpp.Xtarget.Core.Service.Host.exe.config" },
+    { "id": "CORE06", "type": "core", "tag": "6",  "app_name": "Core06_P12_FI", "num_processors": "12", "app_core_type": "P", "config": "Bnpp.Xtarget.Core.Service.Host.exe.config" },
+    { "id": "CORE07", "type": "core", "tag": "7",  "app_name": "Core07_P12_FI", "num_processors": "12", "app_core_type": "P", "config": "Bnpp.Xtarget.Core.Service.Host.exe.config" },
+    { "id": "CORE08", "type": "core", "tag": "8",  "app_name": "Core08_Q8_FI",  "num_processors": "8",  "app_core_type": "Q", "config": "Bnpp.Xtarget.Core.Service.Host.exe.config" },
+    { "id": "CORE09", "type": "core", "tag": "9",  "app_name": "Core09_Q8_FI",  "num_processors": "8",  "app_core_type": "Q", "config": "Bnpp.Xtarget.Core.Service.Host.exe.config" },
+    { "id": "CORE10", "type": "core", "tag": "10", "app_name": "Core10_Q8_FI",  "num_processors": "8",  "app_core_type": "Q", "config": "Bnpp.Xtarget.Core.Service.Host.exe.config" },
+    { "id": "DFM01",  "type": "dfm",  "tag": "DFM01", "app_name": "DFM1_FI", "config": "Bnpp.Xtarget.Dfm.DataFlowManager.exe.config" },
+    { "id": "DFM02",  "type": "dfm",  "tag": "DFM02", "app_name": "DFM2_FI", "config": "Bnpp.Xtarget.Dfm.DataFlowManager.exe.config" },
+    { "id": "DFM03",  "type": "dfm",  "tag": "DFM03", "app_name": "DFM3_FI", "config": "Bnpp.Xtarget.Dfm.DataFlowManager.exe.config" }
+  ]
+}
