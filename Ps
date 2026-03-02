@@ -1,0 +1,82 @@
+<#
+.SYNOPSIS
+    Deploys rendered configs for ALL Core + DFM services in one pass.
+    Replaces all 13 individual COPY tasks in the Classic Release Pipeline.
+
+.USAGE (Classic Release Pipeline - PowerShell task arguments)
+    -DeplDir "$(DeplDir)" -EnvName "$(EnvName)" -ArtifactRoot "$(System.DefaultWorkingDirectory)"
+#>
+
+param(
+    [Parameter(Mandatory=$true)] [string]$DeplDir,
+    [Parameter(Mandatory=$true)] [string]$EnvName,
+    [Parameter(Mandatory=$true)] [string]$ArtifactRoot
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+# Paths
+$commonPath      = "$ArtifactRoot\_BuildForDeploy\drop\DeployEnvironment\Common"
+$serviceListFile = "$commonPath\ServiceList.json"
+$coreTemplate    = "$commonPath\Core.config.template"
+$dfmTemplate     = "$commonPath\DFM.config.template"
+
+# Validate all required files exist
+foreach ($path in @($serviceListFile, $coreTemplate, $dfmTemplate)) {
+    if (-not (Test-Path $path)) {
+        Write-Error "Required file not found: $path"
+        exit 1
+    }
+}
+
+# Load service list + templates once
+$services            = (Get-Content $serviceListFile -Raw | ConvertFrom-Json).services
+$coreTemplateContent = Get-Content $coreTemplate -Raw
+$dfmTemplateContent  = Get-Content $dfmTemplate  -Raw
+
+Write-Host ""
+Write-Host "======================================================"
+Write-Host "  Config Deploy  |  Env: $EnvName  |  Services: $($services.Count)"
+Write-Host "======================================================"
+
+$successCount = 0
+$failCount    = 0
+
+foreach ($svc in $services) {
+    try {
+        # 1. Pick correct template
+        $templateContent = if ($svc.type -eq "core") { $coreTemplateContent } else { $dfmTemplateContent }
+
+        # 2. Replace the single token #{APP_NAME}#
+        $rendered = $templateContent -replace [regex]::Escape('#{APP_NAME}#'), $svc.app_name
+
+        # 3. Ensure target directory exists
+        $targetDir = "$DeplDir\$EnvName\$($svc.id)"
+        if (-not (Test-Path $targetDir)) {
+            New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+        }
+
+        # 4. Write rendered config to target
+        $rendered | Set-Content "$targetDir\$($svc.config)" -Encoding UTF8
+
+        Write-Host "  OK [$($svc.type.ToUpper())] $($svc.id) -> $($svc.app_name)"
+        $successCount++
+
+    } catch {
+        Write-Host "  FAILED: $($svc.id) -> $_"
+        $failCount++
+    }
+}
+
+Write-Host ""
+Write-Host "======================================================"
+Write-Host "  Succeeded : $successCount"
+if ($failCount -gt 0) {
+    Write-Host "  Failed    : $failCount"
+    Write-Host "======================================================"
+    exit 1
+} else {
+    Write-Host "  All $($services.Count) configs deployed successfully."
+    Write-Host "======================================================"
+}
