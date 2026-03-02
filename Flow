@@ -1,0 +1,21 @@
+Pipeline kicks off
+      │
+      ▼
+Script receives $(DeplDir), $(EnvName), $(System.DefaultWorkingDirectory)
+      │
+      ▼
+Reads ServiceList.json → 13 service objects in memory
+Reads Core.config.template → string in memory
+Reads DFM.config.template  → string in memory
+      │
+      ▼
+Loop starts (13 iterations):
+  CORE01 → Core template + replace #{APP_NAME}# with "Core01_H1_FI" → write to D:\RootDeployPath\DevPerf.FI\CORE01\Bnpp...config
+  CORE02 → Core template + replace #{APP_NAME}# with "Core02_H2_FI" → write to D:\RootDeployPath\DevPerf.FI\CORE02\Bnpp...config
+  ...
+  DFM01  → DFM  template + replace #{APP_NAME}# with "DFM1_FI"      → write to D:\RootDeployPath\DevPerf.FI\DFM01\Bnpp...config
+  DFM02  → DFM  template + replace #{APP_NAME}# with "DFM2_FI"      → write to D:\RootDeployPath\DevPerf.FI\DFM02\Bnpp...config
+  DFM03  → DFM  template + replace #{APP_NAME}# with "DFM3_FI"      → write to D:\RootDeployPath\DevPerf.FI\DFM03\Bnpp...config
+      │
+      ▼
+Prints summary → exits 0 (success) or 1 (failure)
