@@ -1,0 +1,96 @@
+<#
+.SYNOPSIS
+    Deploys the correct service config to the current agent based on its deployment group tags.
+    Replaces 13 individual "COPY Config" tasks with just 2 Deployment Group Jobs.
+
+.TOKENS
+    Core  → 3 tokens: #{APP_NAME}#  #{NUM_PROCESSORS}#  #{APP_CORE_TYPE}#
+    DFM   → 1 token:  #{APP_NAME}#
+
+.PIPELINE SETUP
+    Job 1 → Required tags: core | Job 2 → Required tags: dfm
+    Both use: -DeplDir "$(DeplDir)" -EnvName "$(EnvName)" -ArtifactRoot "$(System.DefaultWorkingDirectory)" -AgentTags "$(Agent.Tags)"
+#>
+
+param(
+    [Parameter(Mandatory=$true)] [string]$DeplDir,
+    [Parameter(Mandatory=$true)] [string]$EnvName,
+    [Parameter(Mandatory=$true)] [string]$ArtifactRoot,
+    [Parameter(Mandatory=$true)] [string]$AgentTags
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+# Paths
+$commonPath      = "$ArtifactRoot\_BuildForDeploy\drop\DeployEnvironment\Common"
+$serviceListFile = "$commonPath\ServiceList.json"
+$coreTemplate    = "$commonPath\Core.config.template"
+$dfmTemplate     = "$commonPath\DFM.config.template"
+
+Write-Host "======================================================"
+Write-Host "  Server   : $env:COMPUTERNAME"
+Write-Host "  Tags     : $AgentTags"
+Write-Host "  Env      : $EnvName"
+Write-Host "======================================================"
+
+# Validate required files exist
+foreach ($path in @($serviceListFile, $coreTemplate, $dfmTemplate)) {
+    if (-not (Test-Path $path)) {
+        Write-Error "Required file not found: $path"
+        exit 1
+    }
+}
+
+# Parse agent tags — e.g. "1, core" becomes ["1", "core"]
+$tagList = $AgentTags -split ',' | ForEach-Object { $_.Trim() }
+Write-Host "  Parsed Tags : $($tagList -join ' | ')"
+
+# Load service registry
+$services = (Get-Content $serviceListFile -Raw | ConvertFrom-Json).services
+
+# Match this agent to its service entry via tag
+$svc = $services | Where-Object { $tagList -contains $_.tag }
+
+if (-not $svc) {
+    Write-Error "No service mapping found for tags: [$AgentTags]. Check ServiceList.json."
+    $services | ForEach-Object { Write-Host "  tag=$($_.tag) -> $($_.id)" }
+    exit 1
+}
+
+Write-Host "  Matched  : $($svc.id) | Type: $($svc.type) | APP_NAME: $($svc.app_name)"
+
+# Pick correct template
+$templateFile    = if ($svc.type -eq "core") { $coreTemplate } else { $dfmTemplate }
+$templateContent = Get-Content $templateFile -Raw
+
+# Replace tokens
+# TOKEN 1: used by both Core and DFM
+$rendered = $templateContent -replace [regex]::Escape('#{APP_NAME}#'), $svc.app_name
+
+# TOKEN 2 + 3: Core only (no-op on DFM template since tokens don't exist there)
+$rendered = $rendered -replace [regex]::Escape('#{NUM_PROCESSORS}#'), $svc.num_processors
+$rendered = $rendered -replace [regex]::Escape('#{APP_CORE_TYPE}#'),  $svc.app_core_type
+
+# Write rendered config to target
+$targetDir  = "$DeplDir\$EnvName\$($svc.id)"
+$targetFile = "$targetDir\$($svc.config)"
+
+if (-not (Test-Path $targetDir)) {
+    New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+    Write-Host "  Created dir : $targetDir"
+}
+
+$rendered | Set-Content $targetFile -Encoding UTF8
+
+Write-Host "======================================================"
+Write-Host "  SUCCESS"
+Write-Host "  Service        : $($svc.id)"
+Write-Host "  APP_NAME       : $($svc.app_name)"
+if ($svc.type -eq "core") {
+    Write-Host "  NUM_PROCESSORS : $($svc.num_processors)"
+    Write-Host "  APP_CORE_TYPE  : $($svc.app_core_type)"
+}
+Write-Host "  Config         : $($svc.config)"
+Write-Host "  Target         : $targetFile"
+Write-Host "======================================================"
