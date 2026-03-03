@@ -1,0 +1,119 @@
+<#
+.SYNOPSIS
+    Deploys the correct service config based on deployment group agent tags.
+    Works across TWO separate pipelines - DevPerfFI-Core and DevPerfFI-DFM.
+    Replaces 10 COPY tasks (Core) + 3 COPY tasks (DFM) with 1 job each.
+
+.TOKENS
+    Core template  -> 3 tokens: #{APP_NAME}#  #{NUM_PROCESSORS}#  #{APP_CORE_TYPE}#
+    DFM  template  -> 1 token:  #{APP_NAME}#
+
+.PIPELINE SETUP
+    DevPerfFI-Core | Required tags: core | Pass -CoreServiceName $(CoreServiceName)
+    DevPerfFI-DFM  | Required tags: dfm  | Pass -DfmServiceName  $(DfmServiceName)
+    Both pipelines | Add variable: CommonConfigPath
+#>
+
+param(
+    [Parameter(Mandatory=$true)]  [string]$DeplDir,
+    [Parameter(Mandatory=$true)]  [string]$EnvName,
+    [Parameter(Mandatory=$true)]  [string]$CommonConfigPath,
+    [Parameter(Mandatory=$true)]  [string]$AgentTags,
+    [Parameter(Mandatory=$false)] [string]$CoreServiceName = "",
+    [Parameter(Mandatory=$false)] [string]$DfmServiceName  = ""
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+# ── Paths ─────────────────────────────────────────────────────────────────
+$serviceListFile = "$CommonConfigPath\ServiceList.json"
+$coreTemplate    = "$CommonConfigPath\Core.config.template"
+$dfmTemplate     = "$CommonConfigPath\DFM.config.template"
+
+Write-Host "======================================================"
+Write-Host "  Server           : $env:COMPUTERNAME"
+Write-Host "  Tags             : $AgentTags"
+Write-Host "  Env              : $EnvName"
+Write-Host "  CommonConfigPath : $CommonConfigPath"
+Write-Host "  CoreServiceName  : $(if ($CoreServiceName) { $CoreServiceName } else { '(not provided)' })"
+Write-Host "  DfmServiceName   : $(if ($DfmServiceName)  { $DfmServiceName  } else { '(not provided)' })"
+Write-Host "======================================================"
+
+# ── Validate required files exist ─────────────────────────────────────────
+foreach ($path in @($serviceListFile, $coreTemplate, $dfmTemplate)) {
+    if (-not (Test-Path $path)) {
+        Write-Error "Required file not found: $path"
+        exit 1
+    }
+}
+
+# ── Parse agent tags into a clean array ───────────────────────────────────
+# Agent.Tags arrives comma-separated e.g. '1, core' or 'DFM01, dfm, Listener'
+$tagList = $AgentTags -split ',' | ForEach-Object { $_.Trim() }
+Write-Host "  Parsed Tags      : $($tagList -join ' | ')"
+
+# ── Load service registry ─────────────────────────────────────────────────
+$services = (Get-Content $serviceListFile -Raw | ConvertFrom-Json).services
+
+# ── Match this agent to its service entry via tag ─────────────────────────
+$svc = $services | Where-Object { $tagList -contains $_.tag }
+
+if (-not $svc) {
+    Write-Error "No service mapping found for tags: [$AgentTags]. Check ServiceList.json."
+    Write-Host "Registered tags:"
+    $services | ForEach-Object { Write-Host "  tag=$($_.tag) -> $($_.id)" }
+    exit 1
+}
+
+Write-Host "  Matched          : $($svc.id) | Type: $($svc.type) | APP_NAME: $($svc.app_name)"
+
+# ── Validate correct service name variable was passed ─────────────────────
+# Core pipeline only needs CoreServiceName, DFM pipeline only needs DfmServiceName
+if ($svc.type -eq "core" -and [string]::IsNullOrEmpty($CoreServiceName)) {
+    Write-Error "CoreServiceName is empty. Add CoreServiceName to DevPerfFI-Core pipeline variables."
+    exit 1
+}
+if ($svc.type -eq "dfm" -and [string]::IsNullOrEmpty($DfmServiceName)) {
+    Write-Error "DfmServiceName is empty. Add DfmServiceName to DevPerfFI-DFM pipeline variables."
+    exit 1
+}
+
+# ── Load correct template based on service type ───────────────────────────
+$templateFile    = if ($svc.type -eq "core") { $coreTemplate } else { $dfmTemplate }
+$templateContent = Get-Content $templateFile -Raw
+
+# ── Replace tokens ────────────────────────────────────────────────────────
+# TOKEN 1: APP_NAME - used by both Core and DFM
+$rendered = $templateContent -replace [regex]::Escape('#{APP_NAME}#'), $svc.app_name
+
+# TOKEN 2 + 3: Core only - no-op on DFM template (tokens don't exist there)
+$rendered = $rendered -replace [regex]::Escape('#{NUM_PROCESSORS}#'), $svc.num_processors
+$rendered = $rendered -replace [regex]::Escape('#{APP_CORE_TYPE}#'),  $svc.app_core_type
+
+# ── Build target path using existing pipeline variables ───────────────────
+# Mirrors exactly what the original COPY tasks used:
+#   Core -> DeplDir\EnvName\CoreServiceName
+#   DFM  -> DeplDir\EnvName\DfmServiceName
+$serviceFolderName = if ($svc.type -eq "core") { $CoreServiceName } else { $DfmServiceName }
+$targetDir         = "$DeplDir\$EnvName\$serviceFolderName"
+$targetFile        = "$targetDir\$($svc.config)"
+
+if (-not (Test-Path $targetDir)) {
+    New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+    Write-Host "  Created dir      : $targetDir"
+}
+
+$rendered | Set-Content $targetFile -Encoding UTF8
+
+Write-Host "======================================================"
+Write-Host "  SUCCESS"
+Write-Host "  Service          : $($svc.id)"
+Write-Host "  APP_NAME         : $($svc.app_name)"
+if ($svc.type -eq "core") {
+    Write-Host "  NUM_PROCESSORS   : $($svc.num_processors)"
+    Write-Host "  APP_CORE_TYPE    : $($svc.app_core_type)"
+}
+Write-Host "  Target Dir       : $targetDir"
+Write-Host "  Config File      : $($svc.config)"
+Write-Host "======================================================"
