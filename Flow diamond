@@ -1,0 +1,79 @@
+Pipeline fires
+      │
+      ▼
+Deployment Group Job
+Required tags: "core"
+      │
+      │  Azure DevOps fans out to ALL 10 core servers simultaneously
+      │
+ ┌────┴──────────────┬──────────────────┐
+ ▼                   ▼                  ▼
+EURV0II44585     EURV0II44586      EURV0II44587 ... (10 servers)
+Agent.Tags       Agent.Tags        Agent.Tags
+= "1, core"      = "2, core"       = "3, core"
+      │                │                 │
+      ▼                ▼                 ▼
+Script runs on each server with:
+  -AgentTags       "1, core"        "2, core"        "3, core"
+  -CoreServiceName "Xtarget Core Process Service DevPerf.FI"
+  -DfmServiceName  ""   ← empty, not passed
+      │                │                 │
+      ▼                ▼                 ▼
+tagList = ["1"]  tagList = ["2"]   tagList = ["3"]
+      │                │                 │
+      ▼                ▼                 ▼
+Finds tag="1"    Finds tag="2"     Finds tag="3"
+→ CORE01         → CORE02          → CORE03
+→ app_name:      → app_name:       → app_name:
+  Core01_P12_FI    Core02_P12_FI     Core03_P12_FI
+→ processors:12  → processors:12   → processors:12
+→ type:P         → type:P          → type:P
+      │                │                 │
+      ▼                ▼                 ▼
+Loads Core.config.template (same template for all)
+Replaces 3 tokens with its own values
+      │                │                 │
+      ▼                ▼                 ▼
+Writes to:       Writes to:        Writes to:
+D:\RootDeployPath\DevPerf.FI\Xtarget Core Process Service DevPerf.FI\
+  Core.exe.config  Core.exe.config   Core.exe.config
+
+
+Pipeline fires
+      │
+      ▼
+Deployment Group Job
+Required tags: "dfm"
+      │
+      │  Azure DevOps fans out to ALL 3 DFM servers simultaneously
+      │
+ ┌────┴──────────────┬──────────────────┐
+ ▼                   ▼                  ▼
+EURV0II44619     EURV0II44620      EURV0II44621
+Agent.Tags       Agent.Tags        Agent.Tags
+= "DFM01, dfm"   = "DFM02, dfm"    = "DFM03, dfm"
+      │                │                 │
+      ▼                ▼                 ▼
+Script runs on each server with:
+  -AgentTags       "DFM01, dfm"     "DFM02, dfm"     "DFM03, dfm"
+  -DfmServiceName  "Xtarget Dfm DataFlowManager Service DevPerf.FI"
+  -CoreServiceName ""   ← empty, not passed
+      │                │                 │
+      ▼                ▼                 ▼
+tagList=["DFM01"] tagList=["DFM02"] tagList=["DFM03"]
+      │                │                 │
+      ▼                ▼                 ▼
+Finds tag="DFM01" Finds tag="DFM02" Finds tag="DFM03"
+→ DFM01           → DFM02           → DFM03
+→ app_name:       → app_name:       → app_name:
+  DFM1_FI           DFM2_FI           DFM3_FI
+      │                │                 │
+      ▼                ▼                 ▼
+Loads DFM.config.template (same template for all)
+Replaces 1 token (APP_NAME only) with its own value
+NUM_PROCESSORS + APP_CORE_TYPE replacements = no-op (tokens don't exist in DFM template)
+      │                │                 │
+      ▼                ▼                 ▼
+Writes to:       Writes to:        Writes to:
+D:\RootDeployPath\DevPerf.FI\Xtarget Dfm DataFlowManager Service DevPerf.FI\
+  DFM.exe.config   DFM.exe.config    DFM.exe.config
