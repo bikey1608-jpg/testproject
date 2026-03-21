@@ -1,0 +1,26 @@
+Task type    : PowerShell
+Display name : Backup Core & Stop Service
+Type         : File Path
+Script Path  : $(System.DefaultWorkingDirectory)/Scripts/Backup-Core.ps1
+Arguments    : -DeplDir "$(DeplDir)"
+               -CoreServiceName "$(CoreServiceName)"
+               -EnvName "$(EnvName)"
+               -BackupRoot "D:\Backups\Core"
+               -RetainCount 5
+Run as Admin : ✅ (checked — needed for service stop)
+D:\Backups\Core\
+└── DevPerf.FI\
+    ├── 20250319_143000\     ← latest
+    │   ├── Xtarget.Core.exe
+    │   ├── appsettings.json
+    │   └── ...
+    ├── 20250318_100000\
+    ├── 20250317_083000\
+    ├── 20250316_190000\
+    └── 20250315_120000\     ← oldest kept (RetainCount=5)
+[NEW] Task 0 → PowerShell: Backup Core & Stop Service   ← Backup-Core.ps1
+[EXI] Task 1 → Deploy Core artifacts                    ← unchanged
+[EXI] Task 2 → COPY Core Config 1                       ← unchanged
+...
+[EXI] Task 11→ COPY Core Config 10                      ← unchanged
+[EXI] Task 12→ Install and Start Core service           ← unchanged
