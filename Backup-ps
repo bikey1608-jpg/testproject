@@ -1,0 +1,59 @@
+# Backup-Core.ps1
+# Uses your exact pipeline variables: $(DeplDir), $(CoreServiceName), $(EnvName)
+
+param(
+    [string]$DeplDir        = "D:\RootDeployPath",
+    [string]$CoreServiceName = "Xtarget Core Process Service DevPerf.FI",
+    [string]$EnvName        = "DevPerf.FI",
+    [string]$BackupRoot     = "D:\Backups\Core",
+    [int]   $RetainCount    = 5
+)
+
+$timestamp   = Get-Date -Format "yyyyMMdd_HHmmss"
+$backupDest  = Join-Path $BackupRoot "$EnvName\$timestamp"
+
+Write-Host "##[section] === Xtarget Core Backup : $EnvName ==="
+Write-Host "Source  : $DeplDir"
+Write-Host "Dest    : $backupDest"
+
+# ── 1. Stop the Windows Service ──────────────────────────────────────────────
+$svc = Get-Service -Name $CoreServiceName -ErrorAction SilentlyContinue
+if ($svc) {
+    if ($svc.Status -ne 'Stopped') {
+        Write-Host "##[command] Stopping service: $CoreServiceName"
+        Stop-Service -Name $CoreServiceName -Force
+        $svc.WaitForStatus('Stopped', [TimeSpan]::FromSeconds(30))
+        Write-Host "##[section] Service stopped."
+    } else {
+        Write-Host "##[warning] Service already stopped."
+    }
+} else {
+    Write-Host "##[warning] Service '$CoreServiceName' not found — first deploy?"
+}
+
+# ── 2. Backup existing deployment folder ─────────────────────────────────────
+if (Test-Path $DeplDir) {
+    New-Item -ItemType Directory -Force -Path $backupDest | Out-Null
+    Copy-Item -Path "$DeplDir\*" -Destination $backupDest -Recurse -Force
+    Write-Host "##[section] Backup complete → $backupDest"
+} else {
+    Write-Host "##[warning] DeplDir '$DeplDir' not found — skipping backup."
+}
+
+# ── 3. Retention: keep last N backups ────────────────────────────────────────
+$envBackupPath = Join-Path $BackupRoot $EnvName
+if (Test-Path $envBackupPath) {
+    $allBackups = Get-ChildItem $envBackupPath -Directory |
+                  Sort-Object CreationTime -Descending
+
+    if ($allBackups.Count -gt $RetainCount) {
+        $toDelete = $allBackups | Select-Object -Skip $RetainCount
+        foreach ($old in $toDelete) {
+            Write-Host "Purging old backup: $($old.FullName)"
+            Remove-Item $old.FullName -Recurse -Force
+        }
+        Write-Host "##[section] Retention cleanup done. Kept last $RetainCount backups."
+    }
+}
+
+Write-Host "##[section] === Backup phase complete. Ready to deploy. ==="
