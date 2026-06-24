@@ -1,0 +1,20 @@
+Use Case: "HealthPulse: Smart Lab Report Analyzer & Vital Trends Tracker"
+Problem Statement
+When patients receive blood tests, urine samples, or health screenings, they are handed pages of dense, confusing medical terminology and tabular data. Most people cannot interpret their results—such as understanding what elevated HbA1c or low Vitamin D levels actually imply—until they speak with a doctor. This causes unnecessary anxiety or a lack of urgency for critical health markers.
+There is a major gap for a highly visual, personal health dashboard that parses raw, unstructured diagnostic reports, matches the values against standard clinical reference ranges, explains the terms in plain language, and tracks health trends over time.
+Input
+1. Diagnostic Test Data (User-provided): Digital lab reports (PDF/CSV) or scanned paper reports (JPEG/PNG for text extraction).
+2. User Health Profile: Age, gender, height, weight, active medical history (e.g., diabetic, hypertensive), and primary health goals (e.g., fitness tracking, managing cholesterol).
+Output
+Build an application that:
+1. Parses & Extracts Lab Biomarkers: Automatically identifies test names (e.g., Fasting Blood Sugar, Serum Creatinine), the user's recorded value, and the lab's specific reference units.
+2. Interactive "Health Flag" Dashboard:
+ Groups results into clear bodily systems (e.g., Liver Health, Kidney Function, Cardiovascular, Vitamins).
+ Color-codes results dynamically (e.g., Green for Normal, Amber for Borderline, Red for High/Low Critical).
+ Features an interactive slider or toggle allowing users to see how subtle shifts in their values move them closer to or further from the optimal healthy zone.
+3. Medical Jargon Translator: A simple glossary interface where clicking on any complex biomarker (like LDL Cholesterol) opens a 1–2 line plain-language explanation of what it is, why it matters, and typical lifestyle factors that influence it.
+4. Historical Trend Analyzer (Multi-Report Tracker): If a user uploads reports from six months ago and today, the application generates line charts to show whether their health markers are improving, stabilizing, or deteriorating over time.
+Tech Stack
+ Frontend: Any modern UI framework like React or Angular to build the dashboard, utilizing chart libraries (like Chart.js, Recharts, or D3.js) for the historical trend lines.
+ Backend: Python (Django, Flask, or FastAPI) or Node.js to handle the reference range comparison logic, unit conversions, and categorization algorithms.
+ Database: An in-memory database or relational database (PostgreSQL/SQLite) structured to store biomarker dictionaries, standard reference intervals, and historical user profiles.
